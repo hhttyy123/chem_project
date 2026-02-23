@@ -1,0 +1,28 @@
+# ========== 核心：忽略虚拟环境 ==========
+# 忽略整个venv文件夹（你的虚拟环境目录）
+venv/
+# 兼容其他虚拟环境命名（可选）
+.venv/
+env/
+ENV/
+
+# ========== 忽略Python依赖/编译文件 ==========
+# 忽略Python编译生成的.pyc文件（字节码文件）
+*.pyc
+# 忽略__pycache__目录（编译文件缓存）
+__pycache__/
+# 忽略torch等依赖包目录（如果你手动放了torch目录）
+torch/
+# 忽略pip缓存、日志等
+pip-log.txt
+pip-delete-this-directory.txt
+
+# ========== 可选：忽略其他无关文件 ==========
+# 忽略IDE配置文件（如VS Code）
+.vscode/
+# 忽略系统临时文件
+*.tmp
+*.log
+# 忽略Windows隐藏文件
+Thumbs.db
+.DS_Store

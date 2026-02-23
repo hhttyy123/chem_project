@@ -1,0 +1,14 @@
+# ChemTutor Backend Requirements
+
+# FastAPI 框架
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+
+# HTTP 客户端
+httpx>=0.25.0
+
+# 中文分词
+jieba>=0.42.1
+
+# 数据处理
+pydantic>=2.5.0

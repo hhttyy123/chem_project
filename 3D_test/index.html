@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MolVis · 分子可视化</title>
+
+    <!-- 3Dmol.js -->
+    <script src="https://3dmol.org/build/3Dmol-min.js"></script>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            /* Color Palette - Light Theme */
+            --bg-primary: #f8fafc;
+            --bg-secondary: #ffffff;
+            --bg-tertiary: #f1f5f9;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --text-muted: #94a3b8;
+
+            /* Accent Colors */
+            --accent-blue: #3b82f6;
+            --accent-blue-dim: rgba(59, 130, 246, 0.1);
+            --accent-indigo: #6366f1;
+            --accent-green: #10b981;
+            --accent-rose: #ef4444;
+
+            /* Borders & Effects */
+            --border-color: #e2e8f0;
+            --border-highlight: #cbd5e1;
+            --shadow-subtle: 0 1px 3px rgba(0, 0, 0, 0.05);
+            --shadow-medium: 0 4px 12px rgba(0, 0, 0, 0.08);
+
+            /* Spacing */
+            --space-xs: 0.25rem;
+            --space-sm: 0.5rem;
+            --space-md: 1rem;
+            --space-lg: 1.5rem;
+            --space-xl: 2rem;
+            --space-2xl: 3rem;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Background Pattern */
+        .bg-pattern {
+            position: fixed;
+            inset: 0;
+            background-image:
+                radial-gradient(circle at 20% 30%, rgba(59, 130, 246, 0.04) 0%, transparent 50%),
+                radial-gradient(circle at 80% 70%, rgba(99, 102, 241, 0.03) 0%, transparent 50%),
+                linear-gradient(rgba(148, 163, 184, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(148, 163, 184, 0.05) 1px, transparent 1px);
+            background-size: 100% 100%, 100% 100%, 32px 32px, 32px 32px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* Main Container */
+        .app-container {
+            display: grid;
+            grid-template-columns: 360px 1fr;
+            grid-template-rows: auto 1fr;
+            height: 100vh;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Header */
+        .header {
+            grid-column: 1 / -1;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: var(--space-md) var(--space-xl);
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+        }
+
+        .logo-icon {
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-indigo));
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+        }
+
+        .logo-icon svg {
+            width: 20px;
+            height: 20px;
+            fill: white;
+        }
+
+        .logo-text {
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+
+        .logo-text span {
+            color: var(--accent-blue);
+        }
+
+        .header-status {
+            display: flex;
+            align-items: center;
+            gap: var(--space-md);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: var(--space-xs);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent-green);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .status-dot.loading {
+            background: var(--accent-indigo);
+            animation: pulse 1s ease-in-out infinite;
+        }
+
+        .status-dot.error {
+            background: var(--accent-rose);
+            animation: none;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Sidebar Panel */
+        .sidebar {
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            box-shadow: var(--shadow-subtle);
+        }
+
+        .sidebar-section {
+            padding: var(--space-lg);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .section-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-muted);
+            margin-bottom: var(--space-md);
+        }
+
+        /* Input Section */
+        .input-group {
+            margin-bottom: var(--space-md);
+        }
+
+        .input-label {
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: var(--space-sm);
+        }
+
+        .input-wrapper {
+            position: relative;
+        }
+
+        .smiles-input {
+            width: 100%;
+            padding: var(--space-sm) var(--space-md);
+            padding-right: var(--space-2xl);
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            color: var(--text-primary);
+            transition: all 0.2s ease;
+        }
+
+        .smiles-input:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 0 3px var(--accent-blue-dim);
+        }
+
+        .smiles-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .clear-btn {
+            position: absolute;
+            right: var(--space-sm);
+            top: 50%;
+            transform: translateY(-50%);
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: var(--space-xs);
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .input-wrapper:hover .clear-btn,
+        .smiles-input:focus ~ .clear-btn {
+            opacity: 1;
+        }
+
+        .clear-btn:hover {
+            color: var(--text-secondary);
+        }
+
+        /* Button Styles */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--space-sm);
+            padding: var(--space-sm) var(--space-md);
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 0.85rem;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: none;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-indigo));
+            color: white;
+            width: 100%;
+            padding: var(--space-md);
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.25);
+        }
+
+        .btn-primary:hover {
+            box-shadow: 0 4px 16px rgba(59, 130, 246, 0.35);
+            transform: translateY(-1px);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .btn-secondary {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+        }
+
+        .btn-secondary:hover {
+            background: var(--border-color);
+        }
+
+        /* Example Molecules */
+        .examples-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: var(--space-sm);
+        }
+
+        .example-card {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: var(--space-sm) var(--space-md);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: center;
+        }
+
+        .example-card:hover {
+            border-color: var(--accent-blue);
+            background: var(--accent-blue-dim);
+        }
+
+        .example-name {
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .example-formula {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        /* Style Controls */
+        .control-group {
+            display: flex;
+            gap: var(--space-sm);
+        }
+
+        .style-btn {
+            flex: 1;
+            padding: var(--space-md);
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .style-btn:hover {
+            border-color: var(--border-highlight);
+            background: var(--bg-secondary);
+        }
+
+        .style-btn.active {
+            background: var(--accent-blue);
+            border-color: var(--accent-blue);
+            color: white;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.25);
+        }
+
+        /* Molecule Info */
+        .molecule-info {
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: var(--space-md);
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: var(--space-xs) 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .info-row:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .info-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--text-primary);
+        }
+
+        /* Viewport */
+        .viewport {
+            position: relative;
+            background: linear-gradient(180deg, #f1f5f9 0%, #e2e8f0 100%);
+            overflow: hidden;
+        }
+
+        #mol-container {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Viewport Controls */
+        .viewport-controls {
+            position: absolute;
+            bottom: var(--space-lg);
+            right: var(--space-lg);
+            display: flex;
+            gap: var(--space-sm);
+        }
+
+        .control-btn {
+            width: 42px;
+            height: 42px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: var(--shadow-medium);
+        }
+
+        .control-btn:hover {
+            background: var(--bg-tertiary);
+            border-color: var(--accent-blue);
+        }
+
+        .control-btn svg {
+            width: 18px;
+            height: 18px;
+            fill: var(--text-secondary);
+        }
+
+        /* Loading Overlay */
+        .loading-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(4px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: var(--space-md);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .loading-overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .spinner {
+            width: 44px;
+            height: 44px;
+            border: 3px solid var(--border-color);
+            border-top-color: var(--accent-blue);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        /* Empty State */
+        .empty-state {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: var(--space-md);
+            pointer-events: none;
+        }
+
+        .empty-state.hidden {
+            display: none;
+        }
+
+        .empty-icon {
+            width: 72px;
+            height: 72px;
+            opacity: 0.4;
+        }
+
+        .empty-icon svg {
+            width: 100%;
+            height: 100%;
+            fill: var(--text-muted);
+        }
+
+        .empty-text {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        /* Error Message */
+        .error-message {
+            position: absolute;
+            bottom: var(--space-lg);
+            left: var(--space-lg);
+            right: calc(var(--space-lg) + 160px);
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid var(--accent-rose);
+            border-radius: 8px;
+            padding: var(--space-md);
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 0.3s ease;
+        }
+
+        .error-message.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .error-icon {
+            width: 18px;
+            height: 18px;
+            fill: var(--accent-rose);
+        }
+
+        .error-text {
+            font-size: 0.85rem;
+            color: var(--accent-rose);
+        }
+
+        /* Scrollbar */
+        .sidebar::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .sidebar::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+        }
+
+        .sidebar::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 3px;
+        }
+
+        .sidebar::-webkit-scrollbar-thumb:hover {
+            background: var(--border-highlight);
+        }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            .app-container {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto auto 1fr;
+            }
+
+            .sidebar {
+                border-right: none;
+                border-bottom: 1px solid var(--border-color);
+                max-height: 40vh;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-pattern"></div>
+
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <div class="logo-icon">
+                    <svg viewBox="0 0 24 24"><path d="M12 2L3 7v6c0 5.5 3.8 10.7 9 12 5.2-1.3 9-6.5 9-12V7l-9-5zm0 2.2L19 8v4c0 4.5-3.1 8.8-7 10-3.9-1.2-7-5.5-7-10V8l7-3.8z"/></svg>
+                </div>
+                <div class="logo-text">Mol<span>Vis</span></div>
+            </div>
+            <div class="header-status">
+                <div class="status-indicator">
+                    <div class="status-dot loading" id="statusDot"></div>
+                    <span id="statusText">连接后端中...</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <!-- Input Section -->
+            <div class="sidebar-section">
+                <div class="section-label">分子输入</div>
+
+                <div class="input-group">
+                    <label class="input-label">SMILES 字符串</label>
+                    <div class="input-wrapper">
+                        <input type="text" class="smiles-input" id="smilesInput"
+                               placeholder="例如: CCO (乙醇)" autocomplete="off">
+                        <button class="clear-btn" id="clearBtn" title="清除">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <button class="btn btn-primary" id="visualizeBtn" disabled>
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                        <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+                    </svg>
+                    生成分子
+                </button>
+            </div>
+
+            <!-- Examples -->
+            <div class="sidebar-section">
+                <div class="section-label">示例分子</div>
+                <div class="examples-grid">
+                    <div class="example-card" data-smiles="CCO">
+                        <div class="example-name">乙醇</div>
+                        <div class="example-formula">C₂H₅OH</div>
+                    </div>
+                    <div class="example-card" data-smiles="c1ccccc1">
+                        <div class="example-name">苯</div>
+                        <div class="example-formula">C₆H₆</div>
+                    </div>
+                    <div class="example-card" data-smiles="CC(=O)O">
+                        <div class="example-name">乙酸</div>
+                        <div class="example-formula">CH₃COOH</div>
+                    </div>
+                    <div class="example-card" data-smiles="CC(C)CC(C)C">
+                        <div class="example-name">异辛烷</div>
+                        <div class="example-formula">C₈H₁₈</div>
+                    </div>
+                    <div class="example-card" data-smiles="C1CCCCC1">
+                        <div class="example-name">环己烷</div>
+                        <div class="example-formula">C₆H₁₂</div>
+                    </div>
+                    <div class="example-card" data-smiles="C[C@H](O)C1=CC=CC=C1">
+                        <div class="example-name">苯丙醇</div>
+                        <div class="example-formula">C₉H₁₂O</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Style Controls -->
+            <div class="sidebar-section">
+                <div class="section-label">显示样式</div>
+
+                <div class="control-group">
+                    <button class="style-btn active" data-style="stick">球棍模型</button>
+                    <button class="style-btn" data-style="sphere">空间填充</button>
+                </div>
+            </div>
+
+            <!-- Molecule Info -->
+            <div class="sidebar-section" id="moleculeInfo" style="display: none;">
+                <div class="section-label">分子信息</div>
+                <div class="molecule-info">
+                    <div class="info-row">
+                        <span class="info-label">原子数</span>
+                        <span class="info-value" id="atomCount">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">键数</span>
+                        <span class="info-value" id="bondCount">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">分子量</span>
+                        <span class="info-value" id="molWeight">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">分子式</span>
+                        <span class="info-value" id="formula">-</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Viewport -->
+        <main class="viewport">
+            <div id="mol-container"></div>
+
+            <!-- Empty State -->
+            <div class="empty-state" id="emptyState">
+                <div class="empty-icon">
+                    <svg viewBox="0 0 24 24"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm0 18c-4.4 0-8-3.6-8-8s3.6-8 8-8 8 3.6 8 8-3.6 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/></svg>
+                </div>
+                <div class="empty-text">输入 SMILES 或选择示例分子开始</div>
+            </div>
+
+            <!-- Loading Overlay -->
+            <div class="loading-overlay" id="loadingOverlay">
+                <div class="spinner"></div>
+                <div class="loading-text">正在生成分子结构...</div>
+            </div>
+
+            <!-- Error Message -->
+            <div class="error-message" id="errorMessage">
+                <svg class="error-icon" viewBox="0 0 24 24"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+                <span class="error-text" id="errorText">无效的 SMILES 字符串</span>
+            </div>
+
+            <!-- Viewport Controls -->
+            <div class="viewport-controls">
+                <button class="control-btn" id="resetBtn" title="重置视图">
+                    <svg viewBox="0 0 24 24"><path d="M12 5V1L7 6l5 5V7c3.3 0 6 2.7 6 6s-2.7 6-6 6-6-2.7-6-6H4c0 4.4 3.6 8 8 8s8-3.6 8-8-3.6-8-8-8z"/></svg>
+                </button>
+                <button class="control-btn" id="screenshotBtn" title="截图">
+                    <svg viewBox="0 0 24 24"><path d="M12 12c2.2 0 4-1.8 4-4s-1.8-4-4-4-4 1.8-4 4 1.8 4 4 4zm0 2c-2.7 0-8 1.3-8 4v2h16v-2c0-2.7-5.3-4-8-4z"/></svg>
+                </button>
+                <button class="control-btn" id="fullscreenBtn" title="全屏">
+                    <svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+                </button>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // API Configuration
+        const API_BASE = 'http://localhost:8000';
+
+        // Global variables
+        let viewer = null;
+        let apiConnected = false;
+        let currentStyle = 'stick';
+
+        // DOM elements
+        const smilesInput = document.getElementById('smilesInput');
+        const clearBtn = document.getElementById('clearBtn');
+        const visualizeBtn = document.getElementById('visualizeBtn');
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+        const emptyState = document.getElementById('emptyState');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        const errorMessage = document.getElementById('errorMessage');
+        const errorText = document.getElementById('errorText');
+        const moleculeInfo = document.getElementById('moleculeInfo');
+
+        // Initialize 3Dmol viewer
+        function initViewer() {
+            viewer = $3Dmol.createViewer('mol-container', {
+                backgroundColor: '#f1f5f9'
+            });
+            viewer.setBackgroundColor('#f1f5f9');
+        }
+
+        // Check API connection
+        async function checkAPIConnection() {
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                if (response.ok) {
+                    apiConnected = true;
+                    statusDot.classList.remove('loading', 'error');
+                    statusDot.style.background = 'var(--accent-green)';
+                    statusText.textContent = '后端已连接';
+                    visualizeBtn.disabled = false;
+                    return true;
+                }
+            } catch (e) {
+                apiConnected = false;
+                statusDot.classList.remove('loading');
+                statusDot.classList.add('error');
+                statusText.textContent = '后端未连接 - 请先启动 api.py';
+                visualizeBtn.disabled = true;
+                return false;
+            }
+        }
+
+        // Parse SMILES using API
+        async function parseSMILES(smiles) {
+            const response = await fetch(`${API_BASE}/parse`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ smiles: smiles })
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.detail || 'Failed to parse SMILES');
+            }
+
+            return await response.json();
+        }
+
+        // Get molecule info
+        async function getMoleculeInfo(smiles) {
+            const response = await fetch(`${API_BASE}/info`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ smiles: smiles })
+            });
+
+            if (!response.ok) {
+                return null;
+            }
+
+            return await response.json();
+        }
+
+        // Visualize molecule
+        async function visualizeMolecule(smiles) {
+            if (!smiles.trim()) return;
+            if (!apiConnected) {
+                showError('后端未连接，请先启动 api.py');
+                return;
+            }
+
+            showLoading(true);
+            hideError();
+
+            try {
+                const result = await parseSMILES(smiles);
+
+                if (!result.success || !result.sdf) {
+                    throw new Error('Failed to generate 3D structure');
+                }
+
+                viewer.clear();
+                viewer.addModel(result.sdf, 'sdf');
+
+                applyStyle();
+                viewer.zoomTo();
+                viewer.render();
+
+                emptyState.classList.add('hidden');
+                moleculeInfo.style.display = 'block';
+
+                const info = await getMoleculeInfo(smiles);
+                if (info) {
+                    document.getElementById('atomCount').textContent = info.num_atoms;
+                    document.getElementById('bondCount').textContent = info.num_bonds;
+                    document.getElementById('molWeight').textContent = info.molecular_weight + ' Da';
+                    document.getElementById('formula').textContent = info.formula;
+                }
+
+                showLoading(false);
+            } catch (e) {
+                console.error('Visualization error:', e);
+                showLoading(false);
+                showError(e.message || '无效的 SMILES 字符串');
+            }
+        }
+
+        // Apply rendering style
+        function applyStyle() {
+            if (!viewer) return;
+
+            switch (currentStyle) {
+                case 'stick':
+                    viewer.setStyle({}, {
+                        sphere: { scale: 0.25, colorscheme: 'Jmol' },
+                        stick: { radius: 0.12, colorscheme: 'Jmol' }
+                    });
+                    break;
+                case 'sphere':
+                    viewer.setStyle({}, {
+                        sphere: { scale: 0.8, colorscheme: 'Jmol' }
+                    });
+                    break;
+            }
+
+            viewer.render();
+        }
+
+        // UI Helper functions
+        function showLoading(show) {
+            loadingOverlay.classList.toggle('active', show);
+        }
+
+        function showError(message) {
+            errorText.textContent = message;
+            errorMessage.classList.add('visible');
+            setTimeout(() => {
+                errorMessage.classList.remove('visible');
+            }, 5000);
+        }
+
+        function hideError() {
+            errorMessage.classList.remove('visible');
+        }
+
+        // Event Listeners
+        visualizeBtn.addEventListener('click', () => {
+            visualizeMolecule(smilesInput.value);
+        });
+
+        smilesInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                visualizeMolecule(smilesInput.value);
+            }
+        });
+
+        clearBtn.addEventListener('click', () => {
+            smilesInput.value = '';
+            smilesInput.focus();
+        });
+
+        // Example cards
+        document.querySelectorAll('.example-card').forEach(card => {
+            card.addEventListener('click', () => {
+                const smiles = card.dataset.smiles;
+                smilesInput.value = smiles;
+                visualizeMolecule(smiles);
+            });
+        });
+
+        // Style buttons
+        document.querySelectorAll('.style-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.style-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentStyle = btn.dataset.style;
+                applyStyle();
+            });
+        });
+
+        // Viewport controls
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            viewer.zoomTo();
+        });
+
+        document.getElementById('screenshotBtn').addEventListener('click', () => {
+            viewer.pngURI().then(uri => {
+                const link = document.createElement('a');
+                link.href = uri;
+                link.download = 'molecule.png';
+                link.click();
+            });
+        });
+
+        document.getElementById('fullscreenBtn').addEventListener('click', () => {
+            if (document.fullscreenElement) {
+                document.exitFullscreen();
+            } else {
+                document.documentElement.requestFullscreen();
+            }
+        });
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            initViewer();
+            checkAPIConnection();
+            setInterval(checkAPIConnection, 5000);
+        });
+    </script>
+</body>
+</html>

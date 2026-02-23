@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip:*)",
+      "Bash(pip3:*)",
+      "Bash(conda:*)",
+      "Bash(findstr:*)",
+      "Bash(curl:*)",
+      "Bash(git -C \"C:\\\\Users\\\\44818\\\\Desktop\\\\3D_test\" diff:*)",
+      "Bash(git -C \"C:\\\\Users\\\\44818\\\\Desktop\\\\3D_test\" checkout -- api.py index.html)",
+      "Bash(git -C \"C:\\\\Users\\\\44818\\\\Desktop\\\\3D_test\" status)",
+      "Bash(python:*)",
+      "Bash(git checkout:*)",
+      "Bash(netstat:*)",
+      "Bash(taskkill:*)",
+      "Bash(xargs:*)",
+      "WebSearch",
+      "Bash(ls:*)",
+      "Bash(~/miniconda3/Scripts/conda.exe install:*)",
+      "Bash(~/AppData/Local/Continuum/miniconda3/Scripts/conda.exe --version)",
+      "Bash(~/miniconda3/condabin/conda.bat:*)",
+      "Bash(~/anaconda3/python.exe:*)",
+      "Bash(./chem_env/Scripts/pip:*)"
+    ]
+  }
+}
