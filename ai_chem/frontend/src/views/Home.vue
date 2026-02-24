@@ -185,6 +185,12 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { defineOptions } from 'vue'
+
+// 定义组件名称，供 keep-alive 使用
+defineOptions({
+  name: 'Home'
+})
 import NavBar from '@/components/NavBar.vue'
 import MoleculeDisplay from '@/components/MoleculeDisplay.vue'
 import { chatWithChemistryTutor } from '@/api/glm'

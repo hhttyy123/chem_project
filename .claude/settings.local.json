@@ -6,7 +6,12 @@
       "Bash(python:*)",
       "Bash(npm run dev:*)",
       "Bash(netstat:*)",
-      "Bash(powershell:*)"
+      "Bash(powershell:*)",
+      "Bash(find:*)",
+      "Bash(tasklist:*)",
+      "Bash(taskkill:*)",
+      "Bash(cmd.exe:*)",
+      "Bash(cd:*)"
     ]
   }
 }
