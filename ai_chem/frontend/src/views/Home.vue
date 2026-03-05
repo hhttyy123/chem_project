@@ -185,7 +185,6 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
-import { defineOptions } from 'vue'
 
 // 定义组件名称，供 keep-alive 使用
 defineOptions({
@@ -195,7 +194,7 @@ import NavBar from '@/components/NavBar.vue'
 import MoleculeDisplay from '@/components/MoleculeDisplay.vue'
 import { chatWithChemistryTutor } from '@/api/glm'
 import { useChats } from '@/composables/useChats'
-import { getMoleculeSmiles, findMoleculesInText } from '@/data/molecules'
+import { findMoleculesInText } from '@/data/molecules'
 import { getMoleculeKnowledge } from '@/data/moleculeKnowledge'
 import type { Message } from '@/types/chat'
 
@@ -287,6 +286,7 @@ onMounted(() => {
   scrollToBottom()
 
   // 设置全局函数
+  // @ts-ignore - extending window object
   window.handleMoleculeClick = (smiles: string, name: string) => {
     selectMolecule(smiles, name)
   }
@@ -294,6 +294,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   // 清理全局函数
+  // @ts-ignore
   delete window.handleMoleculeClick
 })
 
@@ -350,6 +351,8 @@ function formatMessage(content: string) {
   // 从后往前替换，避免索引变化
   for (let i = molecules.length - 1; i >= 0; i--) {
     const mol = molecules[i]
+    if (!mol) continue
+
     const before = formatted.substring(0, mol.start)
     const moleculeText = formatted.substring(mol.start, mol.end)
     const after = formatted.substring(mol.end)
@@ -474,7 +477,7 @@ async function sendMessage() {
   }
 
   // 保存当前对话ID（用于异步操作后添加消息）
-  const chatId = currentChatId.value
+  const chatId = currentChatId.value || undefined
 
   // 添加用户消息
   const userMessage: Message = {
@@ -489,7 +492,7 @@ async function sendMessage() {
   scrollToBottom()
 
   // 开始加载
-  setLoading(chatId)
+  setLoading(chatId || null)
 
   try {
     // 调用 GLM API

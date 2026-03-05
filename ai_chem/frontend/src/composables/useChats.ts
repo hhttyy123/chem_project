@@ -109,7 +109,10 @@ export function useChats() {
     // 如果删除的是当前对话，切换到第一个对话或创建新对话
     if (state.value.currentChatId === chatId) {
       if (state.value.chats.length > 0) {
-        state.value.currentChatId = state.value.chats[0].id
+        const firstChat = state.value.chats[0]
+        if (firstChat) {
+          state.value.currentChatId = firstChat.id
+        }
       } else {
         state.value.currentChatId = null
       }
@@ -147,9 +150,9 @@ export function useChats() {
   }
 
   // 获取对话历史（用于发送给AI）
-  function getHistory(): Message[] {
+  function getHistory(): Array<{ role: 'user' | 'assistant'; content: string }> {
     return currentMessages.value.slice(0, -1).map(msg => ({
-      role: msg.role,
+      role: msg.role as 'user' | 'assistant',
       content: msg.content
     }))
   }

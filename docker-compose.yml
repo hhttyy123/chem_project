@@ -1,0 +1,75 @@
+version: '3.8'
+
+services:
+  # ai_chem 后端服务 (RAG)
+  ai-chem-backend:
+    build:
+      context: ./ai_chem/backend
+      dockerfile: Dockerfile
+    container_name: ai-chem-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - GLM_API_KEY=${GLM_API_KEY:-}
+    volumes:
+      - ./ai_chem/backend/data:/app/data
+      - ./ai_chem/backend/logs:/app/logs
+    restart: unless-stopped
+    networks:
+      - chem-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # 3D 可视化服务
+  3d-vis:
+    build:
+      context: ./3D_test
+      dockerfile: Dockerfile
+    container_name: 3d-vis-backend
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./3D_test/data:/app/data
+    restart: unless-stopped
+    networks:
+      - chem-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # 图像识别服务
+  image-identity:
+    build:
+      context: ./image_identity
+      dockerfile: Dockerfile
+    container_name: image-identity-backend
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./image_identity/uploads:/app/uploads
+      - ./image_identity/static/outputs:/app/static/outputs
+    restart: unless-stopped
+    networks:
+      - chem-network
+
+  # 前端服务 (可选 - 如果本地构建则使用 Nginx)
+  frontend:
+    build:
+      context: ./ai_chem/frontend
+      dockerfile: Dockerfile
+    container_name: chem-frontend
+    ports:
+      - "80:80"
+    restart: unless-stopped
+    networks:
+      - chem-network
+    # 如果内存不足，可以注释掉这个服务，直接使用本地构建的 dist
+
+networks:
+  chem-network:
+    driver: bridge

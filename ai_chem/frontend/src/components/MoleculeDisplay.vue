@@ -75,7 +75,7 @@ interface Props {
 const props = defineProps<Props>()
 
 // API Configuration
-const API_BASE = 'http://localhost:8001'
+const API_BASE = '/3d'
 
 // Types
 interface MoleculeInfo {
@@ -121,6 +121,7 @@ function load3DmolScript() {
   if (scriptLoaded) return
 
   return new Promise<void>((resolve) => {
+    // @ts-ignore - 3Dmol is loaded from external script
     if (window.$3Dmol) {
       scriptLoaded = true
       resolve()

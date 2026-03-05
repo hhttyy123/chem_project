@@ -99,7 +99,7 @@ function isInWord(text: string, start: number, end: number): boolean {
   const beforeIsWord = before && isAlphanumeric(before) && !isBoundary(before)
   const afterIsWord = after && isAlphanumeric(after) && !isBoundary(after)
 
-  return beforeIsWord || afterIsWord
+  return !!(beforeIsWord || afterIsWord)
 }
 
 /**

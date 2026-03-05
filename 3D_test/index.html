@@ -735,7 +735,10 @@
 
     <script>
         // API Configuration
-        const API_BASE = 'http://localhost:8000';
+        // 自动检测 API 地址（支持本地和服务器部署）
+        const API_BASE = window.location.hostname === 'localhost'
+            ? 'http://localhost:8001'
+            : `${window.location.protocol}//${window.location.hostname}:8001`;
 
         // Global variables
         let viewer = null;
