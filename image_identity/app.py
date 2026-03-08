@@ -18,6 +18,11 @@ os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 def index():
     return render_template('index.html')
 
+@app.route('/static/outputs/<filename>')
+def serve_output(filename):
+    """提供输出图片"""
+    return send_file(os.path.join(OUTPUT_FOLDER, filename))
+
 @app.route('/identify', methods=['POST'])
 def identify():
     """识别图片中的化学分子"""
@@ -45,16 +50,22 @@ def identify():
             img = Draw.MolToImage(mol, size=(400, 400))
             img.save(output_path)
 
+            # 确保文件保存成功
+            if not os.path.exists(output_path):
+                return jsonify({'error': '图片保存失败'}), 500
+
+            print(f"[DEBUG] 图片已保存: {output_path}, 文件存在: {os.path.exists(output_path)}")
+
             return jsonify({
                 'success': True,
                 'smiles': smiles,
                 'image_url': f'/static/outputs/{output_filename}'
             })
         else:
-            return jsonify({'error': 'SMILES 格式错误'}), 400
+            return jsonify({'error': f'SMILES 格式错误: {smiles}'}), 400
 
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': f'识别失败: {str(e)}'}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
