@@ -11,7 +11,8 @@
       "Bash(tasklist:*)",
       "Bash(taskkill:*)",
       "Bash(cmd.exe:*)",
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "Bash(ls:*)"
     ]
   }
 }

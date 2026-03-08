@@ -103,7 +103,7 @@ identifyBtn.addEventListener('click', async () => {
         if (data.success) {
             // 显示结果
             smilesOutput.textContent = data.smiles;
-            resultImage.src = data.image_url;
+            resultImage.src = data.image_data;  // 使用 base64 图片数据
             resultSection.style.display = 'block';
         } else {
             showError(data.error || '识别失败，请重试');

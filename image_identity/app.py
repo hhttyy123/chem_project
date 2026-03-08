@@ -1,31 +1,25 @@
-from flask import Flask, render_template, request, send_file, jsonify
+from flask import Flask, render_template, request, jsonify
 from DECIMER.decimer import predict_SMILES
 from rdkit import Chem
 from rdkit.Chem import Draw
 import os
 import uuid
-from PIL import Image
+import base64
+from io import BytesIO
 
 app = Flask(__name__)
 
-# 配置上传文件夹和输出文件夹
+# 配置上传文件夹
 UPLOAD_FOLDER = 'uploads'
-OUTPUT_FOLDER = 'static/outputs'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
 @app.route('/')
 def index():
     return render_template('index.html')
 
-@app.route('/static/outputs/<filename>')
-def serve_output(filename):
-    """提供输出图片"""
-    return send_file(os.path.join(OUTPUT_FOLDER, filename))
-
 @app.route('/identify', methods=['POST'])
 def identify():
-    """识别图片中的化学分子"""
+    """识别图片中的化学分子，返回 base64 图片"""
     if 'image' not in request.files:
         return jsonify({'error': '没有上传文件'}), 400
 
@@ -33,7 +27,7 @@ def identify():
     if file.filename == '':
         return jsonify({'error': '文件名为空'}), 400
 
-    # 保存上传的文件
+    # 保存上传的文件（临时）
     filename = f"{uuid.uuid4()}.png"
     upload_path = os.path.join(UPLOAD_FOLDER, filename)
     file.save(upload_path)
@@ -42,29 +36,43 @@ def identify():
         # 使用 DECIMER 识别 SMILES
         smiles = predict_SMILES(upload_path)
 
-        # 验证 SMILES 并生成图片
+        # 验证 SMILES 并生成图片（内存中，不保存）
         mol = Chem.MolFromSmiles(smiles)
         if mol is not None:
-            output_filename = f"{uuid.uuid4()}.png"
-            output_path = os.path.join(OUTPUT_FOLDER, output_filename)
+            # 将图片保存到内存
+            img_buffer = BytesIO()
             img = Draw.MolToImage(mol, size=(400, 400))
-            img.save(output_path)
+            img.save(img_buffer, format='PNG')
+            img_buffer.seek(0)
 
-            # 确保文件保存成功
-            if not os.path.exists(output_path):
-                return jsonify({'error': '图片保存失败'}), 500
+            # 转换为 base64
+            img_base64 = base64.b64encode(img_buffer.read()).decode('utf-8')
 
-            print(f"[DEBUG] 图片已保存: {output_path}, 文件存在: {os.path.exists(output_path)}")
+            # 删除临时上传文件
+            try:
+                os.remove(upload_path)
+            except:
+                pass
 
             return jsonify({
                 'success': True,
                 'smiles': smiles,
-                'image_url': f'/static/outputs/{output_filename}'
+                'image_data': f'data:image/png;base64,{img_base64}'
             })
         else:
+            # 删除临时上传文件
+            try:
+                os.remove(upload_path)
+            except:
+                pass
             return jsonify({'error': f'SMILES 格式错误: {smiles}'}), 400
 
     except Exception as e:
+        # 删除临时上传文件
+        try:
+            os.remove(upload_path)
+        except:
+            pass
         return jsonify({'error': f'识别失败: {str(e)}'}), 500
 
 if __name__ == '__main__':
