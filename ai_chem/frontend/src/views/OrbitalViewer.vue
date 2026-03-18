@@ -646,16 +646,16 @@ const updateSize = () => {
 
 .controls {
   width: 300px;
-  background: white;
+  background: rgba(20, 20, 20, 0.9);
   padding: 2rem;
   overflow-y: auto;
-  border-right: 1px solid #e2e8f0;
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .controls h2 {
   margin: 0 0 2rem;
   font-size: 1.5rem;
-  background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+  background: linear-gradient(135deg, #00ffff 0%, #ff00ff 100%);
   background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -670,23 +670,23 @@ const updateSize = () => {
   display: block;
   margin-bottom: 0.5rem;
   font-size: 0.9rem;
-  color: #64748b;
+  color: #aaa;
 }
 
 .control-group select,
 .control-group input[type="range"] {
   width: 100%;
   padding: 0.5rem;
-  background: #f1f5f9;
-  border: 1px solid #cbd5e1;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 4px;
-  color: #1e293b;
+  color: white;
   font-size: 0.9rem;
 }
 
 .control-group select option {
-  background: white;
-  color: #1e293b;
+  background: #1a1a1a;
+  color: white;
 }
 
 .control-group select {
@@ -695,13 +695,13 @@ const updateSize = () => {
 
 .control-group select:focus {
   outline: none;
-  border-color: #2563eb;
+  border-color: #00ffff;
 }
 
 .btn-generate {
   width: 100%;
   padding: 0.75rem;
-  background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+  background: linear-gradient(135deg, #00ffff 0%, #ff00ff 100%);
   color: white;
   border: none;
   border-radius: 4px;
@@ -723,16 +723,16 @@ const updateSize = () => {
 .info {
   margin-top: 2rem;
   padding: 1rem;
-  background: #f1f5f9;
+  background: rgba(255, 255, 255, 0.05);
   border-radius: 4px;
   font-size: 0.85rem;
-  color: #64748b;
+  color: #888;
 }
 
 .info h3 {
   margin: 0 0 0.75rem;
   font-size: 1rem;
-  color: #2563eb;
+  color: #00ffff;
 }
 
 .info p {
@@ -741,7 +741,7 @@ const updateSize = () => {
 }
 
 .info p strong {
-  color: #475569;
+  color: #aaa;
 }
 
 .canvas-container {
