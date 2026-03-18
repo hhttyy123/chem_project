@@ -77,8 +77,9 @@ export async function chatWithGLM(messages: Message[]): Promise<string> {
 }
 
 /**
- * 从后端检索教材内容
+ * 从后端检索教材内容（已禁用）
  */
+// @ts-ignore - 函数已禁用但保留以备后用
 async function searchTextbooks(question: string): Promise<string> {
   try {
     const response = await fetch(`${BACKEND_API_URL}/search?question=${encodeURIComponent(question)}&top_k=3`)

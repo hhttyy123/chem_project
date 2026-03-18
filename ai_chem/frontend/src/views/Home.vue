@@ -374,7 +374,7 @@ function sendExample(question: string) {
 function renderChemicalFormula(formula: string): string {
   // 将数字转换为下标
   // H2O → H₂O, CO2 → CO₂
-  return formula.replace(/([A-Z][a-z]?)(\d+)/g, (match, element, number) => {
+  return formula.replace(/([A-Z][a-z]?)(\d+)/g, (_match, element, number) => {
     const subscripts: Record<string, string> = {
       '0': '₀', '1': '₁', '2': '₂', '3': '₃', '4': '₄',
       '5': '₅', '6': '₆', '7': '₇', '8': '₈', '9': '₉'
@@ -390,7 +390,7 @@ function formatMessage(content: string) {
 
   // 1. 先保护 LaTeX 公式，用占位符替换
   const latexPlaceholders: string[] = []
-  formatted = formatted.replace(/\$(.+?)\$/g, (match, latex) => {
+  formatted = formatted.replace(/\$(.+?)\$/g, (_match, latex) => {
     const placeholder = `__LATEX_${latexPlaceholders.length}__`
     latexPlaceholders.push(latex)
     return placeholder
@@ -422,8 +422,9 @@ function formatMessage(content: string) {
   formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
 
   // 6. 最后渲染 LaTeX（恢复占位符并渲染）
-  formatted = formatted.replace(/__LATEX_(\d+)__/g, (match, index) => {
+  formatted = formatted.replace(/__LATEX_(\d+)__/g, (_match, index) => {
     const latex = latexPlaceholders[parseInt(index)]
+    if (!latex) return _match
     try {
       return katex.renderToString(latex, {
         throwOnError: false,
@@ -457,7 +458,7 @@ function getMoleculesFromMessage(content: string) {
   let plainText = content
 
   // 1. 处理 LaTeX 格式：$CH_4$ → CH4
-  plainText = plainText.replace(/\$(.+?)\$/g, (match, latex) => {
+  plainText = plainText.replace(/\$(.+?)\$/g, (_match, latex) => {
     return latex.replace(/_\{?(\d+)\}?/g, '$1')
   })
 
@@ -480,16 +481,17 @@ function getMoleculesFromMessage(content: string) {
 }
 
 // 检查标签是否展开
-function isTagsExpanded(messageId: string): boolean {
-  return expandedTags.value.has(messageId)
+function isTagsExpanded(messageId: string | number): boolean {
+  return expandedTags.value.has(String(messageId))
 }
 
 // 切换标签展开/收起
-function toggleTagsExpand(messageId: string) {
-  if (expandedTags.value.has(messageId)) {
-    expandedTags.value.delete(messageId)
+function toggleTagsExpand(messageId: string | number) {
+  const id = String(messageId)
+  if (expandedTags.value.has(id)) {
+    expandedTags.value.delete(id)
   } else {
-    expandedTags.value.add(messageId)
+    expandedTags.value.add(id)
   }
 }
 

@@ -347,27 +347,6 @@ function resetView() {
   }
 }
 
-// Take screenshot
-function takeScreenshot() {
-  if (viewer) {
-    viewer.pngURI().then((uri: string) => {
-      const link = document.createElement('a')
-      link.href = uri
-      link.download = 'molecule.png'
-      link.click()
-    })
-  }
-}
-
-// Toggle fullscreen
-function toggleFullscreen() {
-  if (document.fullscreenElement) {
-    document.exitFullscreen()
-  } else {
-    document.documentElement.requestFullscreen()
-  }
-}
-
 // Show error
 function showError(message: string) {
   errorMessage.value = message
