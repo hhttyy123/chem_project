@@ -23,7 +23,8 @@
       "Bash(npm list:*)",
       "Bash(npm install:*)",
       "Bash(grep -r localhost:8001 . --include=*.js --include=*.ts --include=*.vue --include=*.jsx --include=*.tsx)",
-      "Bash(grep -r 8001 . --include=*.js --include=*.ts --include=*.vue --include=*.jsx --include=*.tsx)"
+      "Bash(grep -r 8001 . --include=*.js --include=*.ts --include=*.vue --include=*.jsx --include=*.tsx)",
+      "Bash(grep -n \"轨道\" question/textbok/*/cleaned_chem.md)"
     ]
   }
 }

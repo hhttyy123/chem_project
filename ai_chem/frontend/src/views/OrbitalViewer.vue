@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
 import NavBar from '@/components/NavBar.vue'
@@ -13,6 +13,7 @@ const particleOpacity = ref(0.6)
 const loading = ref(false)
 const orbitalInfo = ref({})
 const infoCollapsed = ref(true) // 默认折叠状态
+const sidebarCollapsed = ref(false) // 侧边栏折叠状态
 
 let scene, camera, renderer, controls, particleSystem, animationId
 
@@ -101,6 +102,11 @@ onMounted(() => {
 onUnmounted(() => {
   if (animationId) cancelAnimationFrame(animationId)
   if (renderer) renderer.dispose()
+})
+
+// 监听轨道选择变化，自动重新生成
+watch(selectedOrbital, () => {
+  generateOrbital()
 })
 
 const initScene = () => {
@@ -569,7 +575,12 @@ const updateSize = () => {
   <div class="page-wrapper">
     <NavBar />
     <div class="orbital-viewer">
-    <div class="controls">
+    <div class="controls" :class="{ collapsed: sidebarCollapsed }">
+      <button class="sidebar-toggle-btn" @click="sidebarCollapsed = !sidebarCollapsed">
+        {{ sidebarCollapsed ? '→' : '←' }}
+      </button>
+
+      <div class="controls-content" v-show="!sidebarCollapsed">
       <h2>原子轨道可视化</h2>
 
       <div class="control-group">
@@ -602,12 +613,15 @@ const updateSize = () => {
       </div>
 
       <button @click="generateOrbital" :disabled="loading" class="btn-generate">
-        {{ loading ? '生成中...' : '重新生成' }}
+        {{ loading ? '生成中...' : '手动重新生成' }}
       </button>
+
+      <p class="auto-generate-hint">💡 选择轨道后会自动生成</p>
 
       <div class="info">
         <p>🖱️ 拖动旋转</p>
         <p>🔍 滚轮缩放</p>
+      </div>
       </div>
     </div>
 
@@ -685,6 +699,47 @@ const updateSize = () => {
   padding: 2rem;
   overflow-y: auto;
   border-right: 1px solid rgba(255, 255, 255, 0.1);
+  position: relative;
+  transition: width 0.3s ease, padding 0.3s ease;
+}
+
+.controls.collapsed {
+  width: 50px;
+  padding: 1rem 0.5rem;
+}
+
+.sidebar-toggle-btn {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, #00ffff 0%, #ff00ff 100%);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: bold;
+  z-index: 20;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sidebar-toggle-btn:hover {
+  transform: scale(1.1);
+  box-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
+}
+
+.controls.collapsed .sidebar-toggle-btn {
+  right: 0.5rem;
+}
+
+.controls-content {
+  opacity: 1;
+  transition: opacity 0.3s ease;
 }
 
 /* 侧边栏滚动条样式 */
@@ -773,6 +828,14 @@ const updateSize = () => {
 .btn-generate:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.auto-generate-hint {
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  color: #00ffff;
+  text-align: center;
+  opacity: 0.8;
 }
 
 .info {
