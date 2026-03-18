@@ -142,7 +142,7 @@ import NavBar from '@/components/NavBar.vue'
 import { getMoleculeSmiles } from '@/data/molecules'
 
 // API Configuration
-const API_BASE = 'http://localhost:8001'
+const API_BASE = '/3d'
 
 // Types
 interface MoleculeInfo {

@@ -12,6 +12,7 @@ const particleSize = ref(0.06)
 const particleOpacity = ref(0.6)
 const loading = ref(false)
 const orbitalInfo = ref({})
+const infoCollapsed = ref(true) // 默认折叠状态
 
 let scene, camera, renderer, controls, particleSystem, animationId
 
@@ -604,17 +605,6 @@ const updateSize = () => {
         {{ loading ? '生成中...' : '重新生成' }}
       </button>
 
-      <div class="info" v-if="orbitalInfo.name">
-        <h3>轨道信息</h3>
-        <p><strong>名称:</strong> {{ orbitalInfo.name }}</p>
-        <p><strong>能层:</strong> {{ orbitalInfo.shellName }} (n={{ orbitalInfo.n }})</p>
-        <p><strong>能级:</strong> {{ orbitalInfo.subshellName }} (l={{ orbitalInfo.l }})</p>
-        <p><strong>磁量子数:</strong> m={{ orbitalInfo.m }}</p>
-        <p><strong>径向节点:</strong> {{ orbitalInfo.radialNodes }}</p>
-        <p><strong>角节点:</strong> {{ orbitalInfo.angularNodes }}</p>
-        <p><strong>总节点数:</strong> {{ orbitalInfo.totalNodes }}</p>
-      </div>
-
       <div class="info">
         <p>🖱️ 拖动旋转</p>
         <p>🔍 滚轮缩放</p>
@@ -624,6 +614,51 @@ const updateSize = () => {
     <div class="canvas-container">
       <canvas ref="canvas"></canvas>
       <div v-if="loading" class="loading">生成中...</div>
+
+      <!-- 轨道信息显示在右上角 -->
+      <div class="orbital-info-overlay" v-if="orbitalInfo.name" :class="{ collapsed: infoCollapsed }">
+        <div class="info-header" @click="infoCollapsed = !infoCollapsed">
+          <h3>轨道信息</h3>
+          <button class="toggle-btn">
+            <svg v-if="infoCollapsed" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M8 4l-5 5h10z"/>
+            </svg>
+            <svg v-else width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M8 12l5-5H3z"/>
+            </svg>
+          </button>
+        </div>
+        <div class="info-grid" v-show="!infoCollapsed">
+          <div class="info-item">
+            <span class="label">名称:</span>
+            <span class="value">{{ orbitalInfo.name }}</span>
+          </div>
+          <div class="info-item">
+            <span class="label">能层:</span>
+            <span class="value">{{ orbitalInfo.shellName }} (n={{ orbitalInfo.n }})</span>
+          </div>
+          <div class="info-item">
+            <span class="label">能级:</span>
+            <span class="value">{{ orbitalInfo.subshellName }} (l={{ orbitalInfo.l }})</span>
+          </div>
+          <div class="info-item">
+            <span class="label">磁量子数:</span>
+            <span class="value">m={{ orbitalInfo.m }}</span>
+          </div>
+          <div class="info-item">
+            <span class="label">径向节点:</span>
+            <span class="value">{{ orbitalInfo.radialNodes }}</span>
+          </div>
+          <div class="info-item">
+            <span class="label">角节点:</span>
+            <span class="value">{{ orbitalInfo.angularNodes }}</span>
+          </div>
+          <div class="info-item">
+            <span class="label">总节点数:</span>
+            <span class="value">{{ orbitalInfo.totalNodes }}</span>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
   </div>
@@ -650,6 +685,26 @@ const updateSize = () => {
   padding: 2rem;
   overflow-y: auto;
   border-right: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* 侧边栏滚动条样式 */
+.controls::-webkit-scrollbar {
+  width: 8px;
+}
+
+.controls::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+}
+
+.controls::-webkit-scrollbar-thumb {
+  background: rgba(0, 255, 255, 0.3);
+  border-radius: 4px;
+  transition: background 0.3s;
+}
+
+.controls::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 255, 255, 0.5);
 }
 
 .controls h2 {
@@ -747,6 +802,97 @@ const updateSize = () => {
 .canvas-container {
   flex: 1;
   position: relative;
+}
+
+/* 轨道信息悬浮层 - 右上角 */
+.orbital-info-overlay {
+  position: absolute;
+  top: 1.5rem;
+  right: 1.5rem;
+  background: rgba(20, 20, 20, 0.9);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(0, 255, 255, 0.3);
+  border-radius: 8px;
+  padding: 1rem;
+  min-width: 250px;
+  max-width: 300px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  z-index: 10;
+  transition: all 0.3s ease;
+}
+
+.orbital-info-overlay.collapsed {
+  min-width: auto;
+  padding: 0.75rem 1rem;
+}
+
+.info-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+}
+
+.orbital-info-overlay h3 {
+  margin: 0;
+  font-size: 1rem;
+  color: #00ffff;
+  transition: all 0.3s ease;
+}
+
+.orbital-info-overlay.collapsed h3 {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.orbital-info-overlay:not(.collapsed) h3 {
+  border-bottom: 1px solid rgba(0, 255, 255, 0.2);
+  padding-bottom: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.toggle-btn {
+  background: none;
+  border: none;
+  color: #00ffff;
+  cursor: pointer;
+  padding: 0.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.3s ease;
+}
+
+.toggle-btn:hover {
+  transform: scale(1.2);
+}
+
+.info-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.info-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85rem;
+}
+
+.info-item .label {
+  color: #aaa;
+  font-weight: 500;
+}
+
+.info-item .value {
+  color: #fff;
+  font-family: monospace;
+  background: rgba(0, 255, 255, 0.1);
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
 }
 
 canvas {

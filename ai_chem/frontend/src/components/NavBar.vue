@@ -16,7 +16,7 @@
       </div>
 
       <!-- 右侧操作 -->
-      <div class="nav-actions">
+      <div class="nav-actions" style="display: none;">
         <button class="mode-toggle">
           <span>{{ isQuickMode ? '速通' : '深度' }}</span>
         </button>
@@ -48,13 +48,16 @@ const isQuickMode = ref(true)
   padding: 0.75rem 1rem;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
+  position: relative;
 }
 
 .logo {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  position: absolute;
+  left: 1rem;
 }
 
 .logo-icon {
