@@ -451,6 +451,9 @@ def get_molecule_info(request: SMILESRequest):
         if mol is None:
             raise HTTPException(status_code=400, detail="Invalid input: not a valid SMILES or known name")
 
+        # Add hydrogens for accurate counts
+        mol = Chem.AddHs(mol)
+
         # Get molecule properties
         num_atoms = mol.GetNumAtoms()
         num_bonds = mol.GetNumBonds()
@@ -530,4 +533,4 @@ if __name__ == "__main__":
     print("API documentation: http://localhost:8001/docs")
     print("=" * 50)
 
-    uvicorn.run(app, host="127.0.0.1", port=8001, log_level="info")
+    uvicorn.run(app, host="0.0.0.0", port=8001, log_level="info")

@@ -82,6 +82,32 @@
             <div class="message-content">
               <div v-if="msg.role === 'assistant'" class="markdown-content" v-html="formatMessage(msg.content)"></div>
               <p v-else>{{ msg.content }}</p>
+
+              <!-- 底部化学物质标签（仅 AI 回复显示） -->
+              <div v-if="msg.role === 'assistant'" class="molecule-tags">
+                <div class="tags-header">
+                  <span class="tags-icon">🧪</span>
+                  <span class="tags-title">相关物质</span>
+                  <span class="tags-count">({{ getMoleculesFromMessage(msg.content).length }})</span>
+                </div>
+                <div class="tags-list" :class="{ collapsed: !isTagsExpanded(msg.id) }">
+                  <button
+                    v-for="mol in getMoleculesFromMessage(msg.content).slice(0, isTagsExpanded(msg.id) ? undefined : 5)"
+                    :key="mol.name"
+                    class="molecule-tag"
+                    @click="selectMolecule(mol.smiles, mol.name)"
+                  >
+                    {{ mol.name }}
+                  </button>
+                  <button
+                    v-if="getMoleculesFromMessage(msg.content).length > 5"
+                    class="expand-btn"
+                    @click="toggleTagsExpand(msg.id)"
+                  >
+                    {{ isTagsExpanded(msg.id) ? '收起 ▲' : `展开 (${getMoleculesFromMessage(msg.content).length - 5}+) ▼` }}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -197,6 +223,8 @@ import { useChats } from '@/composables/useChats'
 import { findMoleculesInText } from '@/data/molecules'
 import { getMoleculeKnowledge } from '@/data/moleculeKnowledge'
 import type { Message } from '@/types/chat'
+import katex from 'katex'
+import 'katex/dist/katex.min.css'
 
 // 使用对话管理
 const {
@@ -217,6 +245,7 @@ const inputText = ref('')
 const sidebarCollapsed = ref(false)
 const visualCollapsed = ref(false)
 const messagesListRef = ref<HTMLElement | null>(null)
+const expandedTags = ref<Set<string>>(new Set()) // 记录哪些消息的标签是展开的
 
 // 当前选中的分子
 const currentMolecule = ref('')
@@ -341,35 +370,67 @@ function sendExample(question: string) {
   sendMessage()
 }
 
-// 格式化消息（简单的 markdown 处理 + 化学物质高亮）
+// 渲染化学式（转换为下标格式）
+function renderChemicalFormula(formula: string): string {
+  // 将数字转换为下标
+  // H2O → H₂O, CO2 → CO₂
+  return formula.replace(/([A-Z][a-z]?)(\d+)/g, (match, element, number) => {
+    const subscripts: Record<string, string> = {
+      '0': '₀', '1': '₁', '2': '₂', '3': '₃', '4': '₄',
+      '5': '₅', '6': '₆', '7': '₇', '8': '₈', '9': '₉'
+    }
+    const subscript = number.split('').map((d: string) => subscripts[d]).join('')
+    return `${element}${subscript}`
+  })
+}
+
+// 格式化消息（LaTeX + 化学式渲染 + markdown 处理）
 function formatMessage(content: string) {
   let formatted = content
 
-  // 使用前端匹配查找化学物质
-  const molecules = findMoleculesInText(content)
+  // 1. 先渲染 LaTeX 公式（$...$）
+  formatted = formatted.replace(/\$(.+?)\$/g, (match, latex) => {
+    try {
+      return katex.renderToString(latex, {
+        throwOnError: false,
+        trust: true,
+        displayMode: false
+      })
+    } catch (e) {
+      console.warn('KaTeX render failed:', latex, e)
+      return match // 渲染失败返回原文
+    }
+  })
 
-  // 从后往前替换，避免索引变化
-  for (let i = molecules.length - 1; i >= 0; i--) {
-    const mol = molecules[i]
-    if (!mol) continue
+  // 2. 先统一箭头符号（避免被后续处理破坏）
+  formatted = formatted.replace(/->/g, '→')
+  formatted = formatted.replace(/<=>/g, '⇌')
+  formatted = formatted.replace(/==>/g, '⇒')
 
-    const before = formatted.substring(0, mol.start)
-    const moleculeText = formatted.substring(mol.start, mol.end)
-    const after = formatted.substring(mol.end)
+  // 3. 处理单独的化学式（大写字母开头，包含数字，未被 LaTeX 包裹的）
+  // 使用负向前瞻避免匹配已经在 HTML 标签内的内容
+  formatted = formatted.replace(
+    /(?<!<[^>]*)\b([A-Z][a-z]?[0-9]+(?:\([A-Z][a-z]?[0-9]*\))?(?:[A-Z][a-z]?[0-9]*)*)\b(?![^<]*>)/g,
+    (match) => {
+      // 如果已经被 KaTeX 渲染过，跳过
+      if (match.includes('katex')) return match
+      // 排除过长的词
+      if (match.length > 20) return match
+      return renderChemicalFormula(match)
+    }
+  )
 
-    // 使用 data 属性存储编码后的数据，通过事件委托处理点击
-    const escapedSmiles = encodeURIComponent(mol.smiles)
-    const escapedName = encodeURIComponent(mol.name)
-
-    const linkHtml = `<u class="chem-link" data-smiles="${mol.smiles}" data-name="${mol.name}" data-smiles-safe="${escapedSmiles}" data-name-safe="${escapedName}">${moleculeText}</u>`
-    formatted = before + linkHtml + after
-  }
-
-  // 处理粗体
+  // 4. 处理粗体
   formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
 
-  // 处理换行
+  // 5. 处理换行
+  // 把多个连续换行符压缩为单个段落间距
+  formatted = formatted.replace(/\n{2,}/g, '\n\n')
+  // 把双换行转为单个 br（段落间距）
+  formatted = formatted.replace(/\n\n/g, '<br>')
+  // 把单换行也转为 br
   formatted = formatted.replace(/\n/g, '<br>')
+  // 处理列表项
   formatted = formatted.replace(/(\d+)\.\s/g, '<br>$1. ')
   formatted = formatted.replace(/- /g, '<br>• ')
 
@@ -387,6 +448,39 @@ function formatAiExplanation(content: string) {
   formatted = formatted.replace(/\n/g, '<br>')
 
   return formatted
+}
+
+// 从消息中提取化学物质（在渲染之前提取）
+function getMoleculesFromMessage(content: string) {
+  // 先移除 LaTeX 标记，提取纯文本
+  let plainText = content.replace(/\$(.+?)\$/g, (match, latex) => {
+    // 提取 LaTeX 中的化学式，去掉下标标记
+    return latex.replace(/_\{?(\d+)\}?/g, '$1') // CH_4 → CH4
+  })
+
+  const molecules = findMoleculesInText(plainText)
+  // 去重（同一个物质可能出现多次）
+  const uniqueMolecules = new Map()
+  molecules.forEach(mol => {
+    if (!uniqueMolecules.has(mol.name)) {
+      uniqueMolecules.set(mol.name, mol)
+    }
+  })
+  return Array.from(uniqueMolecules.values())
+}
+
+// 检查标签是否展开
+function isTagsExpanded(messageId: string): boolean {
+  return expandedTags.value.has(messageId)
+}
+
+// 切换标签展开/收起
+function toggleTagsExpand(messageId: string) {
+  if (expandedTags.value.has(messageId)) {
+    expandedTags.value.delete(messageId)
+  } else {
+    expandedTags.value.add(messageId)
+  }
 }
 
 // 选中分子
@@ -717,9 +811,10 @@ async function sendMessage() {
   flex: 1;
   overflow-y: auto;
   padding: 1.5rem;
+  padding-bottom: 0.5rem;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1rem;
 }
 
 .message {
@@ -1165,6 +1260,81 @@ async function sendMessage() {
   color: #1d4ed8;
   background: rgba(37, 99, 235, 0.1);
   text-decoration-style: solid;
+}
+
+/* ========== 底部化学物质标签 ========== */
+.molecule-tags {
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.tags-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.tags-icon {
+  font-size: 1rem;
+}
+
+.tags-title {
+  font-weight: 500;
+}
+
+.tags-count {
+  color: #94a3b8;
+}
+
+.tags-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  max-height: 200px;
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+}
+
+.tags-list.collapsed {
+  max-height: 80px;
+}
+
+.molecule-tag {
+  padding: 0.375rem 0.75rem;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.molecule-tag:hover {
+  background: #e0f2fe;
+  border-color: #7dd3fc;
+  color: #0369a1;
+  transform: translateY(-1px);
+}
+
+.expand-btn {
+  padding: 0.375rem 0.75rem;
+  background: white;
+  border: 1px dashed #cbd5e1;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.expand-btn:hover {
+  border-color: #94a3b8;
+  color: #475569;
 }
 
 /* ========== 响应式 ========== */

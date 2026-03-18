@@ -130,12 +130,6 @@
           <button class="control-btn" @click="resetView" title="重置视图">
             <svg viewBox="0 0 24 24"><path d="M12 5V1L7 6l5 5V7c3.3 0 6 2.7 6 6s-2.7 6-6 6-6-2.7-6-6H4c0 4.4 3.6 8 8 8s8-3.6 8-8-3.6-8-8-8z"/></svg>
           </button>
-          <button class="control-btn" @click="takeScreenshot" title="截图">
-            <svg viewBox="0 0 24 24"><path d="M12 12c2.2 0 4-1.8 4-4s-1.8-4-4-4-4 1.8-4 4 1.8 4 4 4zm0 2c-2.7 0-8 1.3-8 4v2h16v-2c0-2.7-5.3-4-8-4z"/></svg>
-          </button>
-          <button class="control-btn" @click="toggleFullscreen" title="全屏">
-            <svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
-          </button>
         </div>
       </main>
     </div>
@@ -148,7 +142,7 @@ import NavBar from '@/components/NavBar.vue'
 import { getMoleculeSmiles } from '@/data/molecules'
 
 // API Configuration
-const API_BASE = '/3d'
+const API_BASE = 'http://localhost:8001'
 
 // Types
 interface MoleculeInfo {

@@ -11,7 +11,7 @@
       <div class="nav-links">
         <router-link to="/" class="nav-link">问答</router-link>
         <router-link to="/viewer" class="nav-link">分子</router-link>
-        <router-link to="/practice" class="nav-link">练习</router-link>
+        <!-- <router-link to="/practice" class="nav-link">练习</router-link> -->
       </div>
 
       <!-- 右侧操作 -->

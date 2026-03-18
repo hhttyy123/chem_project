@@ -57,9 +57,20 @@ function flattenMapping(obj: any): void {
 // 展平映射表
 flattenMapping(nameMappingData)
 
+// 判断名称是否为纯公式（只含字母、数字、+、-）
+function isFormulaOnly(name: string): boolean {
+  return /^[a-zA-Z0-9+\-]+$/.test(name)
+}
+
 // 创建按长度排序的名称列表（从长到短），确保优先匹配更长的词
 const sortedNames = Object.keys(MOLECULE_MAP)
-  .filter(name => name.length >= 2) // 过滤掉过短的词
+  .filter(name => {
+    // 纯公式（如 CO、NO、H2、O2）至少需要 2 个字符
+    // 注意：过短的公式可能误匹配，但常见气体分子需要支持
+    if (isFormulaOnly(name)) return name.length >= 2
+    // 中文或混合名称保持 2 字符最低限制
+    return name.length >= 2
+  })
   .filter(name => !BLACKLIST.has(name)) // 过滤黑名单
   .sort((a, b) => b.length - a.length) // 按长度降序排序
 
@@ -72,6 +83,10 @@ const BOUNDARY_CHARS = new Set([
   '"', "'", '`',
   '、', '《', '》', '【', '】',
   '·', '〜', '～', '—', '–',
+  // Unicode 下标数字（CO₂ 中的 ₂ 等）
+  '₀', '₁', '₂', '₃', '₄', '₅', '₆', '₇', '₈', '₉',
+  // Unicode 上标数字
+  '⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹',
 ])
 
 /**
@@ -89,16 +104,36 @@ function isAlphanumeric(char: string): boolean {
 }
 
 /**
+ * 检查字符是否是中文字符
+ */
+function isChineseChar(char: string): boolean {
+  return /[\u4e00-\u9fff\u3400-\u4dbf]/.test(char)
+}
+
+/**
  * 检查是否在单词内部（避免部分匹配）
+ * - 对中文名称：前后不能紧邻其他中文字符（防止截断匹配，如在"苯乙烯"中匹配"乙烯"）
+ * - 对英文/公式名称：前后不能紧邻字母数字
  */
 function isInWord(text: string, start: number, end: number): boolean {
   const before = start > 0 ? text[start - 1] : ''
   const after = end < text.length ? text[end] : ''
+  const matchedText = text.substring(start, end)
 
-  // 如果前后有字母数字，且不是边界字符，则认为在单词内部
+  const hasChinese = /[\u4e00-\u9fff\u3400-\u4dbf]/.test(matchedText)
+
+  if (hasChinese) {
+    // 中文名称：若首字或末字与相邻中文字符紧连，则视为在词内部
+    const firstChar = matchedText[0] ?? ''
+    const lastChar = matchedText[matchedText.length - 1] ?? ''
+    const beforeIsChinese = before && isChineseChar(before) && isChineseChar(firstChar)
+    const afterIsChinese = after && isChineseChar(after) && isChineseChar(lastChar)
+    return !!(beforeIsChinese || afterIsChinese)
+  }
+
+  // 英文/公式名称：前后不能紧邻字母数字
   const beforeIsWord = before && isAlphanumeric(before) && !isBoundary(before)
   const afterIsWord = after && isAlphanumeric(after) && !isBoundary(after)
-
   return !!(beforeIsWord || afterIsWord)
 }
 

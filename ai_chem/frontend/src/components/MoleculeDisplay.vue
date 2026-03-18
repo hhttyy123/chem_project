@@ -75,7 +75,7 @@ interface Props {
 const props = defineProps<Props>()
 
 // API Configuration
-const API_BASE = '/3d'
+const API_BASE = 'http://localhost:8001'
 
 // Types
 interface MoleculeInfo {

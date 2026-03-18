@@ -12,7 +12,12 @@
       "Bash(taskkill:*)",
       "Bash(cmd.exe:*)",
       "Bash(cd:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(npm run:*)",
+      "Read(//c/Users/44818/Desktop/AI-assistant//**)",
+      "Read(//c/Users/44818/Desktop/AI-assistant/**)",
+      "Bash(git checkout:*)",
+      "mcp__ide__getDiagnostics"
     ]
   }
 }

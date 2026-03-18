@@ -6,7 +6,7 @@ import Favorites from '@/views/Favorites.vue'
 import Profile from '@/views/Profile.vue'
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHistory('/chem/'),
   routes: [
     {
       path: '/',

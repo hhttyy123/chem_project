@@ -5,7 +5,7 @@
 
 const API_KEY = 'a70bc62616f94298a2825a72fd2a53d3.g6tzYCptWLsQUzLt'
 const API_URL = 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
-const BACKEND_API_URL = 'http://localhost:8000/api'
+const BACKEND_API_URL = 'http://localhost:8000/api-chem'
 
 interface Message {
   role: 'system' | 'user' | 'assistant'
