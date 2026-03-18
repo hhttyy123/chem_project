@@ -388,8 +388,42 @@ function renderChemicalFormula(formula: string): string {
 function formatMessage(content: string) {
   let formatted = content
 
-  // 1. 先渲染 LaTeX 公式（$...$）
+  // 1. 先保护 LaTeX 公式，用占位符替换
+  const latexPlaceholders: string[] = []
   formatted = formatted.replace(/\$(.+?)\$/g, (match, latex) => {
+    const placeholder = `__LATEX_${latexPlaceholders.length}__`
+    latexPlaceholders.push(latex)
+    return placeholder
+  })
+
+  // 2. 处理换行（此时 LaTeX 已被占位符保护）
+  formatted = formatted.replace(/\n{2,}/g, '\n\n')
+  formatted = formatted.replace(/\n\n/g, '<br>')
+  formatted = formatted.replace(/\n/g, '<br>')
+  formatted = formatted.replace(/(\d+)\.\s/g, '<br>$1. ')
+  formatted = formatted.replace(/- /g, '<br>• ')
+
+  // 3. 统一箭头符号
+  formatted = formatted.replace(/->/g, '→')
+  formatted = formatted.replace(/<=>/g, '⇌')
+  formatted = formatted.replace(/==>/g, '⇒')
+
+  // 4. 处理单独的化学式
+  formatted = formatted.replace(
+    /(?<!<[^>]*)\b([A-Z][a-z]?[0-9]+(?:\([A-Z][a-z]?[0-9]*\))?(?:[A-Z][a-z]?[0-9]*)*)\b(?![^<]*>)/g,
+    (match) => {
+      if (match.includes('katex')) return match
+      if (match.length > 20) return match
+      return renderChemicalFormula(match)
+    }
+  )
+
+  // 5. 处理粗体
+  formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+
+  // 6. 最后渲染 LaTeX（恢复占位符并渲染）
+  formatted = formatted.replace(/__LATEX_(\d+)__/g, (match, index) => {
+    const latex = latexPlaceholders[parseInt(index)]
     try {
       return katex.renderToString(latex, {
         throwOnError: false,
@@ -398,41 +432,9 @@ function formatMessage(content: string) {
       })
     } catch (e) {
       console.warn('KaTeX render failed:', latex, e)
-      return match // 渲染失败返回原文
+      return `$${latex}$` // 渲染失败返回原文
     }
   })
-
-  // 2. 先统一箭头符号（避免被后续处理破坏）
-  formatted = formatted.replace(/->/g, '→')
-  formatted = formatted.replace(/<=>/g, '⇌')
-  formatted = formatted.replace(/==>/g, '⇒')
-
-  // 3. 处理单独的化学式（大写字母开头，包含数字，未被 LaTeX 包裹的）
-  // 使用负向前瞻避免匹配已经在 HTML 标签内的内容
-  formatted = formatted.replace(
-    /(?<!<[^>]*)\b([A-Z][a-z]?[0-9]+(?:\([A-Z][a-z]?[0-9]*\))?(?:[A-Z][a-z]?[0-9]*)*)\b(?![^<]*>)/g,
-    (match) => {
-      // 如果已经被 KaTeX 渲染过，跳过
-      if (match.includes('katex')) return match
-      // 排除过长的词
-      if (match.length > 20) return match
-      return renderChemicalFormula(match)
-    }
-  )
-
-  // 4. 处理粗体
-  formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-
-  // 5. 处理换行
-  // 把多个连续换行符压缩为单个段落间距
-  formatted = formatted.replace(/\n{2,}/g, '\n\n')
-  // 把双换行转为单个 br（段落间距）
-  formatted = formatted.replace(/\n\n/g, '<br>')
-  // 把单换行也转为 br
-  formatted = formatted.replace(/\n/g, '<br>')
-  // 处理列表项
-  formatted = formatted.replace(/(\d+)\.\s/g, '<br>$1. ')
-  formatted = formatted.replace(/- /g, '<br>• ')
 
   return formatted
 }
@@ -452,11 +454,19 @@ function formatAiExplanation(content: string) {
 
 // 从消息中提取化学物质（在渲染之前提取）
 function getMoleculesFromMessage(content: string) {
-  // 先移除 LaTeX 标记，提取纯文本
-  let plainText = content.replace(/\$(.+?)\$/g, (match, latex) => {
-    // 提取 LaTeX 中的化学式，去掉下标标记
-    return latex.replace(/_\{?(\d+)\}?/g, '$1') // CH_4 → CH4
+  let plainText = content
+
+  // 1. 处理 LaTeX 格式：$CH_4$ → CH4
+  plainText = plainText.replace(/\$(.+?)\$/g, (match, latex) => {
+    return latex.replace(/_\{?(\d+)\}?/g, '$1')
   })
+
+  // 2. 处理 Unicode 下标：CH₄ → CH4
+  const subscriptMap: Record<string, string> = {
+    '₀': '0', '₁': '1', '₂': '2', '₃': '3', '₄': '4',
+    '₅': '5', '₆': '6', '₇': '7', '₈': '8', '₉': '9'
+  }
+  plainText = plainText.replace(/[₀₁₂₃₄₅₆₇₈₉]/g, (char) => subscriptMap[char] || char)
 
   const molecules = findMoleculesInText(plainText)
   // 去重（同一个物质可能出现多次）

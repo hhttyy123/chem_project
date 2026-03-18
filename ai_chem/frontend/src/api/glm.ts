@@ -1,10 +1,10 @@
 /**
- * GLM-4 API 客户端
- * 智谱 AI 接口
+ * AI API 客户端
+ * 使用中转站接口
  */
 
-const API_KEY = 'a70bc62616f94298a2825a72fd2a53d3.g6tzYCptWLsQUzLt'
-const API_URL = 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+const API_KEY = 'sk-jJjNRb4a9NKUC84sSvAFpjzsrcCrG4mXItzDBur7tRcQQ9yH'
+const API_URL = 'https://ai.t8star.cn/v1/chat/completions'
 const BACKEND_API_URL = 'http://localhost:8000/api-chem'
 
 interface Message {
@@ -40,11 +40,10 @@ interface ChatResponse {
 }
 
 /**
- * 调用 GLM-4 API
+ * 调用 AI API
  */
 export async function chatWithGLM(messages: Message[]): Promise<string> {
   try {
-    // 直接使用 API Key（智谱支持 Bearer 认证）
     const response = await fetch(API_URL, {
       method: 'POST',
       headers: {
@@ -52,11 +51,10 @@ export async function chatWithGLM(messages: Message[]): Promise<string> {
         'Authorization': `Bearer ${API_KEY}`,
       },
       body: JSON.stringify({
-        model: 'glm-4.6',
+        model: 'gemini-3.1-flash-lite-preview-thinking-medium',
         messages,
         temperature: 0.7,
-        top_p: 0.9,
-        max_tokens: 8192,
+        max_tokens: 2048,
       } as ChatRequest),
     })
 
@@ -105,8 +103,9 @@ async function searchTextbooks(question: string): Promise<string> {
  * 化学助教对话（带教材参考）
  */
 export async function chatWithChemistryTutor(question: string, history: Message[] = []): Promise<string> {
-  // 1. 先检索教材内容作为参考
-  const textbookContent = await searchTextbooks(question)
+  // 1. 先检索教材内容作为参考（暂时禁用）
+  // const textbookContent = await searchTextbooks(question)
+  const textbookContent = '' // 禁用 RAG 检索
 
   // 2. 构建 system prompt
   let systemPrompt = `你是一个专业的高中化学AI助教，名字叫"ChemTutor"。

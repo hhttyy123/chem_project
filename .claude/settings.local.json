@@ -17,7 +17,11 @@
       "Read(//c/Users/44818/Desktop/AI-assistant//**)",
       "Read(//c/Users/44818/Desktop/AI-assistant/**)",
       "Bash(git checkout:*)",
-      "mcp__ide__getDiagnostics"
+      "mcp__ide__getDiagnostics",
+      "Bash(./venv/Scripts/python --version)",
+      "Bash(./venv/Scripts/pip list:*)",
+      "Bash(npm list:*)",
+      "Bash(npm install:*)"
     ]
   }
 }
