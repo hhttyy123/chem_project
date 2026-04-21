@@ -3,7 +3,7 @@
  * 使用中转站接口
  */
 
-const API_KEY = 'sk-jJjNRb4a9NKUC84sSvAFpjzsrcCrG4mXItzDBur7tRcQQ9yH'
+const API_KEY = 'sk-IltZ1yLSLO2dxmOaSZ5UMfgbAoQdmDM11Bx11YSWUlrO6UH9'
 const API_URL = 'https://ai.t8star.cn/v1/chat/completions'
 const BACKEND_API_URL = 'http://localhost:8000/api-chem'
 
@@ -51,7 +51,7 @@ export async function chatWithGLM(messages: Message[]): Promise<string> {
         'Authorization': `Bearer ${API_KEY}`,
       },
       body: JSON.stringify({
-        model: 'gemini-3.1-flash-lite-preview-thinking-medium',
+        model: 'glm-4.6',
         messages,
         temperature: 0.7,
         max_tokens: 2048,
