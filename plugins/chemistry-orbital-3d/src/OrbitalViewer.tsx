@@ -5,7 +5,6 @@ interface A2UINode {
 }
 
 declare const THREE: any
-declare const OrbitControls: any
 
 function parseStr(val: unknown, fallback: string): string {
   return typeof val === 'string' ? val : fallback
@@ -157,14 +156,15 @@ export default function OrbitalViewer({ node }: { node: A2UINode }) {
   const engineRef = useRef<any>(null)
 
   const [ready, setReady] = useState(false)
+  const [engineReady, setEngineReady] = useState(false)
   const [loading, setLoading] = useState(false)
   const [selectedOrbital, setSelectedOrbital] = useState(orbitalType)
   const [orbitalInfo, setOrbitalInfo] = useState<any>(null)
 
   // Load Three.js CDN
   useEffect(() => {
-    loadScript('https://unpkg.com/three@0.160.0/build/three.min.js')
-      .then(() => loadScript('https://unpkg.com/three@0.160.0/examples/js/controls/OrbitControls.js'))
+    loadScript('https://cdn.bootcdn.net/ajax/libs/three.js/r128/three.min.js')
+      .then(() => loadScript('https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js'))
       .then(() => setReady(true))
   }, [])
 
@@ -188,7 +188,7 @@ export default function OrbitalViewer({ node }: { node: A2UINode }) {
     renderer.setSize(W, H)
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
 
-    const controls = new OrbitControls(camera, renderer.domElement)
+    const controls = new THREE.OrbitControls(camera, renderer.domElement)
     controls.enableDamping = true
     controls.dampingFactor = 0.05
 
@@ -225,6 +225,7 @@ export default function OrbitalViewer({ node }: { node: A2UINode }) {
     animId = requestAnimationFrame(animate)
 
     engineRef.current = { scene, camera, renderer, controls, animId }
+    setEngineReady(true)
   }, [])
 
   // Init when ready
@@ -361,10 +362,9 @@ export default function OrbitalViewer({ node }: { node: A2UINode }) {
 
   // When orbital changes (from LLM or user selection)
   useEffect(() => {
-    if (!ready || !engineRef.current) return
-    if (!selectedOrbital) return
+    if (!engineReady || !selectedOrbital) return
     generateOrbital(selectedOrbital, particleCountProp)
-  }, [selectedOrbital, ready, particleCountProp, generateOrbital])
+  }, [selectedOrbital, engineReady, particleCountProp, generateOrbital])
 
   // Sync from LLM props
   useEffect(() => {
