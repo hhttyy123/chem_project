@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
+import $3Dmol from '3dmol'
 
 interface A2UINode {
   properties?: Record<string, unknown>
@@ -11,33 +12,89 @@ interface MoleculeInfo {
   formula: string
 }
 
-declare const $3Dmol: any
-
-const API_BASE = 'http://localhost:8001'
-const THREE_DMOL_CDN = 'https://3dmol.org/build/3Dmol-min.js'
-
 function parseStr(val: unknown, fallback: string): string {
   return typeof val === 'string' ? val : fallback
 }
 
-function loadScript(src: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const existing = document.querySelector(`script[src="${src}"]`)
-    if (existing) {
-      resolve()
-      return
-    }
-    const script = document.createElement('script')
-    script.src = src
-    script.onload = () => resolve()
-    script.onerror = () => reject(new Error(`Failed to load ${src}`))
-    document.head.appendChild(script)
-  })
+interface Atom {
+  element: string
+  x: number
+  y: number
+  z: number
+  index: number
+}
+
+interface Bond {
+  atom1: number
+  atom2: number
+  order: number
+}
+
+interface MoleculeData {
+  atoms: Atom[]
+  bonds: Bond[]
+  formula: string
+  molecular_weight: number
+  num_atoms: number
+  num_bonds: number
+}
+
+function parseMoleculeData(val: unknown): MoleculeData | null {
+  if (!val || typeof val !== 'object') return null
+  const obj = val as Record<string, unknown>
+  const atoms = obj.atoms
+  const bonds = obj.bonds
+  if (!Array.isArray(atoms) || !Array.isArray(bonds)) return null
+  return {
+    atoms: atoms.map((a: any) => ({
+      element: String(a.element ?? 'C'),
+      x: Number(a.x) || 0,
+      y: Number(a.y) || 0,
+      z: Number(a.z) || 0,
+      index: Number(a.index) || 0,
+    })),
+    bonds: bonds.map((b: any) => ({
+      atom1: Number(b.atom1) || 0,
+      atom2: Number(b.atom2) || 0,
+      order: Number(b.order) || 1,
+    })),
+    formula: String(obj.formula ?? ''),
+    molecular_weight: Number(obj.molecular_weight) || 0,
+    num_atoms: Number(obj.num_atoms) || 0,
+    num_bonds: Number(obj.num_bonds) || 0,
+  }
+}
+
+// Build SDF from atom/bond data
+function buildSDF(data: MoleculeData): string {
+  const atomLines = data.atoms.map((a, i) =>
+    `${a.x.toFixed(4).padStart(10)}${a.y.toFixed(4).padStart(10)}${a.z.toFixed(4).padStart(10)} ${a.element.padEnd(3)} 0  0  0  0  0  0  0  0  0  0  0  0`
+  )
+  const bondLines = data.bonds.map(b =>
+    `${(b.atom1 + 1).toString().padStart(3)}${(b.atom2 + 1).toString().padStart(3)}${b.order}  0  0  0`
+  )
+
+  const numAtoms = data.atoms.length
+  const numBonds = data.bonds.length
+  const countsLine = `${numAtoms.toString().padStart(3)}${numBonds.toString().padStart(3)}  0  0  0  0  0  0  0  0  1 V2000`
+
+  let sdf = ''
+  sdf += '\n'
+  sdf += '     RDKit          3D\n'
+  sdf += '\n'
+  sdf += countsLine + '\n'
+  for (const line of atomLines) sdf += line + '\n'
+  for (const line of bondLines) sdf += line + '\n'
+  sdf += 'M  END\n'
+  sdf += '$$$$\n'
+
+  return sdf
 }
 
 export default function MoleculeDisplay({ node }: { node: A2UINode }) {
   const props = node.properties ?? {}
   const smiles = parseStr(props.smiles, '')
+  const rawMoleculeData = props.moleculeData
 
   const containerRef = useRef<HTMLDivElement>(null)
   const viewerRef = useRef<any>(null)
@@ -47,16 +104,10 @@ export default function MoleculeDisplay({ node }: { node: A2UINode }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [info, setInfo] = useState<MoleculeInfo | null>(null)
-  const [scriptReady, setScriptReady] = useState(false)
 
-  // Load 3Dmol.js
+  // Init 3Dmol viewer
   useEffect(() => {
-    loadScript(THREE_DMOL_CDN).then(() => setScriptReady(true))
-  }, [])
-
-  // Init viewer
-  useEffect(() => {
-    if (!scriptReady || !containerRef.current || viewerRef.current) return
+    if (!containerRef.current || viewerRef.current) return
     try {
       const viewer = $3Dmol.createViewer(containerRef.current, {
         backgroundColor: '#f8fafc',
@@ -64,15 +115,15 @@ export default function MoleculeDisplay({ node }: { node: A2UINode }) {
       viewer.setBackgroundColor('#f8fafc')
       viewerRef.current = viewer
     } catch {
-      // 3Dmol not ready yet, will retry on next render
+      // 3Dmol not ready, will retry
     }
-  }, [scriptReady])
+  }, [])
 
-  // Apply style
-  const applyStyle = () => {
+  // Apply style to viewer
+  const applyStyle = useCallback((s: 'stick' | 'sphere') => {
     const viewer = viewerRef.current
     if (!viewer) return
-    if (style === 'stick') {
+    if (s === 'stick') {
       viewer.setStyle({}, {
         sphere: { scale: 0.25, colorscheme: 'Jmol' },
         stick: { radius: 0.12, colorscheme: 'Jmol' },
@@ -83,82 +134,66 @@ export default function MoleculeDisplay({ node }: { node: A2UINode }) {
       })
     }
     viewer.render()
-  }
+  }, [])
 
-  // Visualize when smiles changes
+  // Visualize molecule from data
   useEffect(() => {
-    if (!smiles || !viewerRef.current) {
-      if (!smiles) {
-        setCurrentSmiles('')
-        setInfo(null)
-        setError('')
+    if (rawMoleculeData) {
+      const data = parseMoleculeData(rawMoleculeData)
+      if (!data) return
+
+      // Wait for viewer
+      let attempts = 0
+      const waitForViewer = () => {
+        if (viewerRef.current) {
+          const viewer = viewerRef.current
+          viewer.clear()
+
+          // Build SDF and load into 3Dmol
+          const sdf = buildSDF(data)
+          viewer.addModel(sdf, 'sdf')
+
+          applyStyle(style)
+          viewer.zoomTo()
+          viewer.render()
+
+          setCurrentSmiles(smiles)
+          setInfo({
+            formula: data.formula,
+            molecular_weight: data.molecular_weight,
+            num_atoms: data.num_atoms,
+            num_bonds: data.num_bonds,
+          })
+          setLoading(false)
+          setError('')
+        } else if (attempts < 50) {
+          attempts++
+          setTimeout(waitForViewer, 100)
+        } else {
+          setError('3D viewer initialization failed')
+          setLoading(false)
+        }
       }
+      setLoading(true)
+      waitForViewer()
       return
     }
 
-    if (smiles === currentSmiles) return
-
-    let cancelled = false
-    const viewer = viewerRef.current
-
-    async function visualize() {
+    if (!smiles) {
+      setCurrentSmiles('')
+      setInfo(null)
+      setLoading(false)
+      setError('')
+    } else {
       setLoading(true)
       setError('')
-      try {
-        const parseRes = await fetch(`${API_BASE}/parse`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ smiles }),
-        })
-        if (!parseRes.ok) {
-          const err = await parseRes.json()
-          throw new Error(err.detail || 'Failed to parse SMILES')
-        }
-        const result = await parseRes.json()
-        if (!result.success || !result.sdf) {
-          throw new Error('Unable to generate 3D structure')
-        }
-        if (cancelled) return
-
-        viewer.clear()
-        viewer.addModel(result.sdf, 'sdf')
-        applyStyle()
-        viewer.zoomTo()
-        viewer.render()
-
-        setCurrentSmiles(smiles)
-
-        // Fetch molecule info
-        try {
-          const infoRes = await fetch(`${API_BASE}/info`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ smiles }),
-          })
-          if (infoRes.ok) {
-            const moleculeInfo = await infoRes.json()
-            if (!cancelled) setInfo(moleculeInfo)
-          }
-        } catch {
-          // info fetch failed, not critical
-        }
-      } catch (e: any) {
-        if (!cancelled) {
-          setError(e.message || 'Unable to display molecule')
-        }
-      } finally {
-        setLoading(false)
-      }
     }
+  }, [smiles, rawMoleculeData, style, applyStyle])
 
-    visualize()
-    return () => { cancelled = true }
-  }, [smiles, scriptReady]) // eslint-disable-line react-hooks/exhaustive-deps
-
+  // Style change
   const handleStyleChange = (s: 'stick' | 'sphere') => {
     setStyle(s)
-    // applyStyle will run on next render after state update
-    setTimeout(() => applyStyle(), 0)
+    setTimeout(() => applyStyle(s), 0)
   }
 
   const handleReset = () => {
@@ -166,30 +201,18 @@ export default function MoleculeDisplay({ node }: { node: A2UINode }) {
   }
 
   const btnBase: React.CSSProperties = {
-    flex: 1,
-    padding: '6px 8px',
-    background: style === 'stick' || style === 'sphere' ? '#f1f5f9' : '#f1f5f9',
-    border: '1px solid #e2e8f0',
-    borderRadius: 8,
-    fontSize: 12,
-    fontFamily: 'Manrope, sans-serif',
-    color: '#64748b',
-    cursor: 'pointer',
+    flex: 1, padding: '6px 8px', background: '#f1f5f9',
+    border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 12,
+    fontFamily: 'Manrope, sans-serif', color: '#64748b', cursor: 'pointer',
     transition: 'all 0.2s',
   }
 
   return (
     <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 10,
-      background: '#faf9f5',
-      borderRadius: 12,
-      padding: 12,
-      fontFamily: 'Manrope, sans-serif',
-      color: '#1b1c1a',
+      display: 'flex', flexDirection: 'column', gap: 10,
+      background: '#faf9f5', borderRadius: 12, padding: 12,
+      fontFamily: 'Manrope, sans-serif', color: '#1b1c1a',
     }}>
-      {/* Loading */}
       {loading && (
         <div style={{
           display: 'flex', flexDirection: 'column', alignItems: 'center',
@@ -201,59 +224,34 @@ export default function MoleculeDisplay({ node }: { node: A2UINode }) {
             borderRadius: '50%', animation: 'spin 1s linear infinite',
           }} />
           <div style={{ fontSize: 13, color: '#64748b' }}>
-            正在生成分子结构...
+            {smiles ? `正在解析 ${smiles}...` : '等待分子数据...'}
           </div>
           <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
         </div>
       )}
 
-      {/* Empty state */}
-      {!currentSmiles && !loading && !error && (
-        <div style={{
-          display: 'flex', flexDirection: 'column', alignItems: 'center',
-          justifyContent: 'center', gap: 12, padding: 48, textAlign: 'center',
-        }}>
-          <div style={{ fontSize: 36, opacity: 0.5 }}>&#x1f52c;</div>
-          <div style={{ fontSize: 13, color: '#94a3b8' }}>
-            等待分子数据...
-          </div>
-        </div>
-      )}
-
-      {/* Error */}
       {error && (
         <div style={{
-          padding: 10,
-          background: 'rgba(239, 68, 68, 0.1)',
-          border: '1px solid #ef4444',
-          borderRadius: 8,
-          fontSize: 13,
-          color: '#ef4444',
-        }}>
-          {error}
-        </div>
+          padding: 10, background: 'rgba(239, 68, 68, 0.1)',
+          border: '1px solid #ef4444', borderRadius: 8,
+          fontSize: 13, color: '#ef4444',
+        }}>{error}</div>
       )}
 
-      {/* 3D Canvas */}
-      {currentSmiles && !loading && !error && (
-        <div style={{
-          position: 'relative',
-          height: 280,
-          background: '#f8fafc',
-          borderRadius: 12,
-          overflow: 'hidden',
-        }}>
-          <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
-        </div>
-      )}
+      <div style={{
+        position: 'relative', height: 280, background: '#f8fafc',
+        borderRadius: 12, overflow: 'hidden',
+      }}>
+        <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+      </div>
 
-      {/* Molecule Info */}
       {currentSmiles && !loading && !error && info && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {[
             ['分子式', info.formula],
             ['分子量', info.molecular_weight ? `${info.molecular_weight} Da` : '-'],
             ['原子数', String(info.num_atoms)],
+            ['化学键数', String(info.num_bonds)],
           ].map(([label, value]) => (
             <div key={label} style={{
               display: 'flex', justifyContent: 'space-between',
@@ -269,7 +267,6 @@ export default function MoleculeDisplay({ node }: { node: A2UINode }) {
         </div>
       )}
 
-      {/* Style Controls */}
       {currentSmiles && !loading && !error && (
         <div style={{ display: 'flex', gap: 8 }}>
           <button
@@ -281,7 +278,7 @@ export default function MoleculeDisplay({ node }: { node: A2UINode }) {
               color: style === 'stick' ? '#fff' : '#64748b',
             }}
           >
-            球棍模型
+            {'球棍模型'}
           </button>
           <button
             onClick={() => handleStyleChange('sphere')}
@@ -292,13 +289,10 @@ export default function MoleculeDisplay({ node }: { node: A2UINode }) {
               color: style === 'sphere' ? '#fff' : '#64748b',
             }}
           >
-            空间填充
+            {'空间填充'}
           </button>
-          <button
-            onClick={handleReset}
-            style={btnBase}
-          >
-            重置视图
+          <button onClick={handleReset} style={btnBase}>
+            {'重置视图'}
           </button>
         </div>
       )}
